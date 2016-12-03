@@ -16,35 +16,58 @@ use Illuminate\Http\File;
 
 class ThreadController extends Controller
 {
-    public function index($id = null, Request $request)
+    public function index( Request $request, $id = null)
     {
 
-        if($request->input('order') === "hot"){
+        if($id === null){
+            if($request->input('order') === "hot"){
+                //TODO How should we define a thread as "hot"
+                $threads = Thread::orderBy('total_votes', 'desc')
+                    ->paginate(25);
 
-            //TODO How should we define a thread as "hot"
-            $threads = Sub::find($id)->threads()
-                ->orderBy('updated_at', 'desc')
-                ->orderBy('created_at', 'desc')
-                ->orderBy('total_votes', 'desc')
-                ->paginate(25);
+                // updated_at today
+                // above avg total votes?
+                //if created within a week
+                //if updated_at recently?
+            }
 
-            // updated_at today
-            // above avg total votes?
-            //if created within a week
-            //if updated_at recently?
+            if($request->input('order') === "new"){
+                $threads = Thread::orderBy('created_at', 'desc')
+                    ->paginate(25);
+            }
+            if($request->input('order') === "top"){
+                //TODO How should we define a thread as "hot"
+                $threads = Thread::orderBy('total_votes', 'desc')
+                    ->paginate(25);
+            }
         }
 
-        if($request->input('order') === "new"){
-            $threads = Sub::find($id)->threads()
-                ->orderBy('created_at', 'desc')
-                ->paginate(25);
+        else {
+            if($request->input('order') === "hot"){
+                //TODO How should we define a thread as "hot"
+                $threads = Sub::find($id)->threads()
+                    ->orderBy('updated_at', 'desc')
+                    ->orderBy('created_at', 'desc')
+                    ->orderBy('total_votes', 'desc')
+                    ->paginate(25);
+
+                // updated_at today
+                // above avg total votes?
+                //if created within a week
+                //if updated_at recently?
+            }
+            if($request->input('order') === "new"){
+                $threads = Sub::find($id)->threads()
+                    ->orderBy('created_at', 'desc')
+                    ->paginate(25);
+            }
+            if($request->input('order') === "top"){
+                $threads = Sub::find($id)->threads()
+                    ->orderBy('total_votes', 'desc')
+                    ->paginate(25);
+            }
         }
 
-        if($request->input('order') === "top"){
-            $threads = Sub::find($id)->threads()
-                ->orderBy('total_votes', 'desc')
-                ->paginate(25);
-        }
 
         foreach ($threads as $thread) {
             $commentCount = DB::table('comments')->where('thread_id', '=', $thread->id)->count();

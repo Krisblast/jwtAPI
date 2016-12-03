@@ -23,7 +23,7 @@ class SubController extends Controller
      */
     public function index($id = null)
     {
-        ;
+
         $subs = Sub::orderBy('id', 'asc')->get();
 
         foreach ($subs as $sub) {
@@ -101,14 +101,11 @@ class SubController extends Controller
 
             //Find 30 threads with most votes form each sub the user is subscribed to.
 
-
-            $ldate = date('Y-m-d');
             $threads = DB::table('threads')
                 ->groupBy('id')
                 ->orderBy('created_at', 'desc')
                 ->orderBy('total_votes', 'desc')
                 ->where('sub_id', '=', $user_subscription->sub_id)
-                //->whereDate('created_at', $ldate )
 
                 //->where('total_votes', '!=', 0)
                 ->limit(30) //How many threads we take from each sub
