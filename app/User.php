@@ -80,14 +80,4 @@ class User extends Authenticatable implements JWTSubject
     }
 
 
-
-    function hasVoted($request, $id)
-    {
-        $hasVoted = DB::table('votes')
-            ->where('thread_id', '=', $id)
-            ->where('user_id', '=', $request->user()->id)
-            ->first();
-
-        return $this->hasMany('App\Vote');
-    }
 }

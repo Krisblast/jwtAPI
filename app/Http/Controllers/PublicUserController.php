@@ -14,8 +14,10 @@ class PublicUserController extends Controller
         $user_response = New Object_();
         $user = DB::table('users')->where('name', '=', $id)->first();
 
+        //FIXME use select
         $user_response->name = $user->name;
         $user_response->id = $user->id;
+
         if ($user) {
             $response = array(
                 'message' => 'Success',
@@ -37,10 +39,9 @@ class PublicUserController extends Controller
 
     public function getUserThreads($id)
     {
-        $userThreads = DB::table('threads')->where('user_id', '=', $id)->get();
+        $userThreads = DB::table('threads')->where('user_id', '=', $id)->paginate(25);
         foreach ($userThreads as $thread) {
-            $commentCount = DB::table('comments')->where('thread_id', '=', $thread->id)->count();
-            $thread->comment_count = $commentCount;
+            $thread->comment_count = $this->getThreadCommentCount($thread->id);
         }
         if ($userThreads) {
             $response = array(
@@ -59,4 +60,8 @@ class PublicUserController extends Controller
             return response($response, 400);
         }
     }
+
+
+
+
 }

@@ -24,13 +24,13 @@ class SubController extends Controller
     public function index($id = null)
     {
 
-        $subs = Sub::orderBy('id', 'asc')->get();
-
-        foreach ($subs as $sub) {
-            $sub->user_name = DB::table('users')->where('id', '=', $sub->user_id)->first()->name;
-        }
-
         if ($id == null) {
+            $subs = Sub::orderBy('id', 'asc')->get();
+
+            foreach ($subs as $sub) {
+                $sub->user_name = DB::table('users')->where('id', '=', $sub->user_id)->first()->name;
+            }
+
             $response = array(
                 'message' => 'Success',
                 'status' => 200,
@@ -38,7 +38,9 @@ class SubController extends Controller
             );
             return response($response, 200);
         } else {
-            $sub = Sub::find($id);
+
+            $sub = Sub::where('sub_name', $id)->first();
+
             $response = array(
                 'message' => 'Success',
                 'status' => 200,
@@ -85,32 +87,29 @@ class SubController extends Controller
     public function getAllSubscribed(Request $request)
     {
 
-
         $subscriptions = User::find($request->user()->id)->subscriptions()
             ->join('subs', 'subscribers.sub_id', '=', 'subs.id')
             ->join('users', 'subscribers.user_id', '=', 'users.id')
             ->get();
 
-
-
         //FIXME Is this really the way to do it?
         $collection = collect([]);
 
+        //Get threads for every sub the user is subscribed to
         foreach ($subscriptions as $user_subscription) {
 
-
-            //Find 30 threads with most votes form each sub the user is subscribed to.
-
+            //Find 30 threads with most votes from each sub the user is subscribed to.
             $threads = DB::table('threads')
                 ->groupBy('id')
                 ->orderBy('created_at', 'desc')
                 ->orderBy('total_votes', 'desc')
-                ->where('sub_id', '=', $user_subscription->sub_id)
-
+                ->where('sub_id', '=', $user_subscription->sub_id) //Fixme maybe we could make a query where we get all the threads we need
                 //->where('total_votes', '!=', 0)
-                ->limit(30) //How many threads we take from each sub
+                ->limit(30)//How many threads we take from each sub
                 ->get();
 
+
+            //If we have threads add the threads to the collection
             if ($threads->count()) {
                 foreach ($threads as $threadToArray) {
                     $threadToArray->sub_name = $user_subscription->sub_name;
@@ -119,13 +118,12 @@ class SubController extends Controller
             }
         }
 
-            if ($request->input('page') == null) {
-                $page = 1;
+        if ($request->input('page') == null) {
+            $page = 1;
 
-            } else {
-                $page = $request->input('page');
-            }
-
+        } else {
+            $page = $request->input('page');
+        }
 
 
         $collection = $collection->sortBy('total_votes', null, true)->forPage($page, 30); // Page, PageSize
@@ -133,22 +131,10 @@ class SubController extends Controller
         $newArray = [];
 
         foreach ($collection as $threadToArray) {
-            $commentCount = DB::table('comments')->where('thread_id', '=', $threadToArray->id)->count();
-            $threadToArray->comment_count = $commentCount;
+            $threadToArray->comment_count = $this->getThreadCommentCount($threadToArray->id);
 
-            if ($request->user()) {
-                $hasVoted = DB::table('votes')
-                    ->where('thread_id', '=', $threadToArray->id)
-                    ->where('user_id', '=', $request->user()->id)
-                    ->first();
+            $this->hasUserVotedOnThread($request,$threadToArray);
 
-                if ($hasVoted) {
-                    $threadToArray->has_voted = true;
-                    $threadToArray->vote_type = $hasVoted->vote_type;
-                } else {
-                    $threadToArray->has_voted = false;
-                }
-            }
             $newArray = array_prepend($newArray, $threadToArray);
         }
 
