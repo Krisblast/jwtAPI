@@ -101,7 +101,7 @@ class SubscriberController extends Controller
             }
             else{
                 $response = array(
-                    'message' => 'Failed - Not users sub',
+                    'message' => 'Failed - Only the sub creator can delete this sub',
                     'status' => 400
                 );
                 return response($response, 400);

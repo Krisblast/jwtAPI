@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 use App\Sub;
 use App\User;
-use App\Vote;
 use App\Thread;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -24,11 +23,6 @@ class ThreadController extends Controller
                 //TODO How should we define a thread as "hot"
                 $threads = Thread::orderBy('total_votes', 'desc')
                     ->paginate(25);
-
-                // updated_at today
-                // above avg total votes?
-                //if created within a week
-                //if updated_at recently?
             }
 
             if($request->input('order') === "new"){
@@ -70,21 +64,13 @@ class ThreadController extends Controller
 
 
         foreach ($threads as $thread) {
-            $commentCount = DB::table('comments')->where('thread_id', '=', $thread->id)->count();
-            $thread->comment_count = $commentCount;
 
-            if($request->user()){
+            $thread->comment_count = $this->getThreadCommentCount($thread->id);
 
-                $hasVoted = User::find($request->user()->id)->votes()->where('thread_id', '=', $thread->id)->first();
+            $thread->sub_name = DB::table('subs')->where('id', '=', $thread->sub_id)->first()->sub_name;
 
-                if ($hasVoted){
-                    $thread->has_voted = true;
-                    $thread->vote_type = $hasVoted->vote_type;
-                }
-                else {
-                    $thread->has_voted = false;
-                }
-            }
+            $this->hasUserVotedOnThread($request,$thread);
+
         }
         if ($threads) {
             $response = array(
@@ -111,29 +97,14 @@ class ThreadController extends Controller
             ->where('id', '=', $thread_id)
             ->first();
 
-        $thread->sub_name = DB::table('subs')
-            ->where('id', '=', $thread->sub_id)
-            ->first()->sub_name;
-
-
-
-        if($request->user()){
-            $hasVoted = DB::table('votes')
-                ->where('thread_id', '=', $thread->id)
-                ->where('user_id', '=', $request->user()->id)
-                ->first();
-
-
-            if ($hasVoted){
-                $thread->has_voted = true;
-                $thread->vote_type = $hasVoted->vote_type;
-            }
-            else {
-                $thread->has_voted = false;
-            }
-        }
-
         if ($thread) {
+
+            $thread->sub_name = DB::table('subs')
+                ->where('id', '=', $thread->sub_id)
+                ->first()->sub_name;
+
+            $this->hasUserVotedOnThread($request,$thread);
+
             $response = array(
                 'message' => 'Success',
                 'status' => 200,

@@ -24,13 +24,14 @@ class SubController extends Controller
     public function index($id = null)
     {
 
-        $subs = Sub::orderBy('id', 'asc')->get();
-
-        foreach ($subs as $sub) {
-            $sub->user_name = DB::table('users')->where('id', '=', $sub->user_id)->first()->name;
-        }
-
         if ($id == null) {
+            $subs = Sub::orderBy('id', 'asc')
+                ->join('users', 'subs.user_id', '=', 'users.id')
+                ->leftJoin('threads', 'threads.sub_id', '=', 'subs.id')
+                ->select(DB::raw('subs.*, users.name as user_name, COUNT(threads.id) AS threads_count'))
+                ->groupBy('subs.id')
+                ->get();
+
             $response = array(
                 'message' => 'Success',
                 'status' => 200,
@@ -38,7 +39,9 @@ class SubController extends Controller
             );
             return response($response, 200);
         } else {
-            $sub = Sub::find($id);
+
+            $sub = Sub::where('sub_name', $id)->first();
+
             $response = array(
                 'message' => 'Success',
                 'status' => 200,
@@ -85,78 +88,35 @@ class SubController extends Controller
     public function getAllSubscribed(Request $request)
     {
 
+        if ($request->input('page') == null) {
+            $page = 1;
 
-        $subscriptions = User::find($request->user()->id)->subscriptions()
-            ->join('subs', 'subscribers.sub_id', '=', 'subs.id')
-            ->join('users', 'subscribers.user_id', '=', 'users.id')
-            ->get();
-
-
-
-        //FIXME Is this really the way to do it?
-        $collection = collect([]);
-
-        foreach ($subscriptions as $user_subscription) {
-
-
-            //Find 30 threads with most votes form each sub the user is subscribed to.
-
-            $threads = DB::table('threads')
-                ->groupBy('id')
-                ->orderBy('created_at', 'desc')
-                ->orderBy('total_votes', 'desc')
-                ->where('sub_id', '=', $user_subscription->sub_id)
-
-                //->where('total_votes', '!=', 0)
-                ->limit(30) //How many threads we take from each sub
-                ->get();
-
-            if ($threads->count()) {
-                foreach ($threads as $threadToArray) {
-                    $threadToArray->sub_name = $user_subscription->sub_name;
-                    $collection->push($threadToArray);
-                }
-            }
+        } else {
+            $page = $request->input('page');
         }
 
-            if ($request->input('page') == null) {
-                $page = 1;
 
-            } else {
-                $page = $request->input('page');
-            }
+        $subscription_threads =
+            User::find($request->user()->id)
+                ->subscriptions()
+                ->select(DB::raw('threads.*,  subs.sub_name, COUNT(comments.id) AS comment_count'))
+                ->join('threads', 'threads.sub_id', '=', 'subscribers.sub_id')
+                ->leftJoin('subs', 'subscribers.sub_id', '=', 'subs.id')
+                ->leftJoin('comments', 'threads.id', '=', 'comments.thread_id')
+                ->groupBy('threads.id')
+                ->orderBy('threads.created_at', 'desc')
+                ->paginate(25);
 
 
-
-        $collection = $collection->sortBy('total_votes', null, true)->forPage($page, 30); // Page, PageSize
-
-        $newArray = [];
-
-        foreach ($collection as $threadToArray) {
-            $commentCount = DB::table('comments')->where('thread_id', '=', $threadToArray->id)->count();
-            $threadToArray->comment_count = $commentCount;
-
-            if ($request->user()) {
-                $hasVoted = DB::table('votes')
-                    ->where('thread_id', '=', $threadToArray->id)
-                    ->where('user_id', '=', $request->user()->id)
-                    ->first();
-
-                if ($hasVoted) {
-                    $threadToArray->has_voted = true;
-                    $threadToArray->vote_type = $hasVoted->vote_type;
-                } else {
-                    $threadToArray->has_voted = false;
-                }
-            }
-            $newArray = array_prepend($newArray, $threadToArray);
+        foreach ($subscription_threads as $thread){
+            $this->hasUserVotedOnThread($request,$thread);
         }
 
 
         $response = array(
             'message' => 'Success',
             'status' => 200,
-            'data' => array_reverse($newArray),
+            'data' => $subscription_threads,
             'page' => $page
         );
         return response($response, 200);
