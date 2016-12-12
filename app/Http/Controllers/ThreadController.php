@@ -23,10 +23,6 @@ class ThreadController extends Controller
                 //TODO How should we define a thread as "hot"
                 $threads = Thread::orderBy('total_votes', 'desc')
                     ->paginate(25);
-                // updated_at today
-                // above avg total votes?
-                //if created within a week
-                //if updated_at recently?
             }
 
             if($request->input('order') === "new"){
