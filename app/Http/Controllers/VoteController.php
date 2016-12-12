@@ -158,6 +158,7 @@ class VoteController extends Controller
             if ($hasVoted) {
 
                 $voteToChange = Vote::find($hasVoted->id);
+
                 if($voteToChange->vote_type == 1){
                     $message = 'the last vote type was 1 we should remove one from total up votes and +1 to total down votes on thread';
                     $thread = Thread::find($voteToChange->thread_id);

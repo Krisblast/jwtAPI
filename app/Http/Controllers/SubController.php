@@ -99,18 +99,19 @@ class SubController extends Controller
         $subscription_threads =
             User::find($request->user()->id)
                 ->subscriptions()
-                ->select(DB::raw('threads.*,  subs.sub_name, COUNT(comments.id) AS comment_count'))
+                ->select(DB::raw(
+                    'threads.*,  
+                    subs.sub_name, 
+                    COUNT(comments.id) AS comment_count, 
+                    (select votes.vote_type FROM votes where ' . $request->user()->id . ' = votes.user_id AND threads.id = votes.thread_id) as vote_type,
+                    (select COUNT(*) FROM votes where threads.id = votes.thread_id AND votes.vote_type = 1) as vote_count_up,
+                    (select COUNT(*) FROM votes where threads.id = votes.thread_id AND votes.vote_type = 0) as vote_count_down'))
                 ->join('threads', 'threads.sub_id', '=', 'subscribers.sub_id')
                 ->leftJoin('subs', 'subscribers.sub_id', '=', 'subs.id')
                 ->leftJoin('comments', 'threads.id', '=', 'comments.thread_id')
                 ->groupBy('threads.id')
                 ->orderBy('threads.created_at', 'desc')
                 ->paginate(25);
-
-
-        foreach ($subscription_threads as $thread){
-            $this->hasUserVotedOnThread($request,$thread);
-        }
 
 
         $response = array(
