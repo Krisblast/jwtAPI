@@ -18,60 +18,75 @@ class ThreadController extends Controller
     public function index( Request $request, $id = null)
     {
 
-        if($id === null){
-            if($request->input('order') === "hot"){
-                //TODO How should we define a thread as "hot"
-                $threads = Thread::orderBy('total_votes', 'desc')
-                    ->paginate(25);
-            }
 
-            if($request->input('order') === "new"){
+        if($request->user()){
+            if($id === null){
+                //TODO How should we define a thread as "hot"
                 $threads = Thread::orderBy('created_at', 'desc')
+                    ->leftJoin('subs', 'threads.sub_id', '=', 'subs.id')
+                    ->leftJoin('comments', 'threads.id', '=', 'comments.thread_id')
+                    ->select(DB::raw(
+                        'threads.*,  
+                    subs.sub_name, 
+                    COUNT(comments.id) AS comment_count, 
+                    (select votes.vote_type FROM votes where ' . $request->user()->id . ' = votes.user_id AND threads.id = votes.thread_id) as vote_type,
+                    (select COUNT(*) FROM votes where threads.id = votes.thread_id AND votes.vote_type = 1) as up_votes,
+                    (select COUNT(*) FROM votes where threads.id = votes.thread_id AND votes.vote_type = 0) as down_votes'))
+                    ->groupBy('threads.id')
                     ->paginate(25);
             }
-            if($request->input('order') === "top"){
+            else {
                 //TODO How should we define a thread as "hot"
-                $threads = Thread::orderBy('total_votes', 'desc')
+                $threads = Sub::find($id)->threads()
+                    ->leftJoin('subs', 'threads.sub_id', '=', 'subs.id')
+                    ->leftJoin('comments', 'threads.id', '=', 'comments.thread_id')
+                    ->select(DB::raw(
+                        'threads.*,  
+                    subs.sub_name, 
+                    COUNT(comments.id) AS comment_count, 
+                    (select votes.vote_type FROM votes where ' . $request->user()->id . ' = votes.user_id AND threads.id = votes.thread_id) as vote_type,
+                    (select COUNT(*) FROM votes where threads.id = votes.thread_id AND votes.vote_type = 1) as up_votes,
+                    (select COUNT(*) FROM votes where threads.id = votes.thread_id AND votes.vote_type = 0) as down_votes'))
+                    ->groupBy('threads.id')
                     ->paginate(25);
             }
         }
-
         else {
-            if($request->input('order') === "hot"){
+            if($id === null){
+                //TODO How should we define a thread as "hot"
+                $threads = Thread::orderBy('created_at', 'desc')
+                    ->leftJoin('subs', 'threads.sub_id', '=', 'subs.id')
+                    ->leftJoin('comments', 'threads.id', '=', 'comments.thread_id')
+                    ->select(DB::raw(
+                        'threads.*,  
+                    subs.sub_name, 
+                    COUNT(comments.id) AS comment_count, 
+                    (select COUNT(*) FROM votes where threads.id = votes.thread_id AND votes.vote_type = 1) as up_votes,
+                    (select COUNT(*) FROM votes where threads.id = votes.thread_id AND votes.vote_type = 0) as down_votes'))
+                    ->groupBy('threads.id')
+                    ->paginate(25);
+            }
+            else {
                 //TODO How should we define a thread as "hot"
                 $threads = Sub::find($id)->threads()
-                    ->orderBy('updated_at', 'desc')
-                    ->orderBy('created_at', 'desc')
-                    ->orderBy('total_votes', 'desc')
-                    ->paginate(25);
-
-                // updated_at today
-                // above avg total votes?
-                //if created within a week
-                //if updated_at recently?
-            }
-            if($request->input('order') === "new"){
-                $threads = Sub::find($id)->threads()
-                    ->orderBy('created_at', 'desc')
-                    ->paginate(25);
-            }
-            if($request->input('order') === "top"){
-                $threads = Sub::find($id)->threads()
-                    ->orderBy('total_votes', 'desc')
+                    ->leftJoin('subs', 'threads.sub_id', '=', 'subs.id')
+                    ->leftJoin('comments', 'threads.id', '=', 'comments.thread_id')
+                    ->select(DB::raw(
+                        'threads.*,  
+                    subs.sub_name, 
+                    COUNT(comments.id) AS comment_count, 
+                    (select COUNT(*) FROM votes where threads.id = votes.thread_id AND votes.vote_type = 1) as up_votes,
+                    (select COUNT(*) FROM votes where threads.id = votes.thread_id AND votes.vote_type = 0) as down_votes'))
+                    ->groupBy('threads.id')
                     ->paginate(25);
             }
         }
 
 
-        foreach ($threads as $thread) {
-
-            $thread->comment_count = $this->getThreadCommentCount($thread->id);
-
-            $thread->sub_name = DB::table('subs')->where('id', '=', $thread->sub_id)->first()->sub_name;
-
-            $this->hasUserVotedOnThread($request,$thread);
-
+        foreach ($threads as $thread){
+            $thread->total_votes = $thread->up_votes - $thread->down_votes;
         }
+
         if ($threads) {
             $response = array(
                 'message' => 'Success',
@@ -93,18 +108,29 @@ class ThreadController extends Controller
 
     public function getThreadDetail($thread_id, Request $request)
     {
-        $thread = DB::table('threads')
-            ->where('id', '=', $thread_id)
-            ->first();
+        //TODO Maybe get sub name in here? or should the user just make a call to get the sub info.
+        if ($request->user()){
+            $thread = Thread::orderBy('id', 'desc')
+                ->where('id', $thread_id)
+                ->select(DB::raw(
+                    'threads.*,
+                 (select votes.vote_type FROM votes where ' . $request->user()->id . ' = votes.user_id AND threads.id = votes.thread_id) as vote_type,
+                 (select COUNT(*) FROM votes where threads.id = votes.thread_id AND votes.vote_type = 1) as up_votes,
+                 (select COUNT(*) FROM votes where threads.id = votes.thread_id AND votes.vote_type = 0) as down_votes'))
+                ->first();
+        }
+        else {
+            $thread = Thread::orderBy('id', 'desc')
+                ->where('id', $thread_id)
+                ->select(DB::raw(
+                    'threads.*,
+                 (select COUNT(*) FROM votes where threads.id = votes.thread_id AND votes.vote_type = 1) as up_votes,
+                 (select COUNT(*) FROM votes where threads.id = votes.thread_id AND votes.vote_type = 0) as down_votes'))
+                ->first();
+        }
 
         if ($thread) {
-
-            $thread->sub_name = DB::table('subs')
-                ->where('id', '=', $thread->sub_id)
-                ->first()->sub_name;
-
-            $this->hasUserVotedOnThread($request,$thread);
-
+            $thread->total_votes = $thread->up_votes - $thread->down_votes;
             $response = array(
                 'message' => 'Success',
                 'status' => 200,
@@ -144,11 +170,6 @@ class ThreadController extends Controller
 
         else {
 
-
-//            $file = $request->image;
-//            $imagedata = file_get_contents($file);
-//            $base64 = base64_encode($imagedata);
-
             $thread = new Thread();
             $thread->sub_id = $request->input('sub_id');
             $thread->user_id = $request->user()->id;
@@ -157,12 +178,13 @@ class ThreadController extends Controller
             $thread->image = $request->input('image');
             $thread->text = $request->input('text');
             $thread->link = $request->input('link');
+            $thread->save();
+            $thread->comment_count = 0;
             $thread->up_votes = 0;
             $thread->down_votes = 0;
             $thread->total_votes = 0;
-            $thread->save();
-            $thread->comment_count = 0;
-            //$completedTasks = User::find($request->user()->id)->subs()->get();
+            $thread->vote_type = null;
+
             $response = array(
                 'message' => 'Success',
                 'status' => 200,

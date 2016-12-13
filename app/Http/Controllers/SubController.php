@@ -95,11 +95,16 @@ class SubController extends Controller
             $page = $request->input('page');
         }
 
-
         $subscription_threads =
             User::find($request->user()->id)
                 ->subscriptions()
-                ->select(DB::raw('threads.*,  subs.sub_name, COUNT(comments.id) AS comment_count'))
+                ->select(DB::raw(
+                    'threads.*,  
+                    subs.sub_name, 
+                    COUNT(comments.id) AS comment_count, 
+                    (select votes.vote_type FROM votes where ' . $request->user()->id . ' = votes.user_id AND threads.id = votes.thread_id) as vote_type,
+                    (select COUNT(*) FROM votes where threads.id = votes.thread_id AND votes.vote_type = 1) as up_votes,
+                    (select COUNT(*) FROM votes where threads.id = votes.thread_id AND votes.vote_type = 0) as down_votes'))
                 ->join('threads', 'threads.sub_id', '=', 'subscribers.sub_id')
                 ->leftJoin('subs', 'subscribers.sub_id', '=', 'subs.id')
                 ->leftJoin('comments', 'threads.id', '=', 'comments.thread_id')
@@ -108,10 +113,9 @@ class SubController extends Controller
                 ->paginate(25);
 
 
-        foreach ($subscription_threads as $thread){
-            $this->hasUserVotedOnThread($request,$thread);
+        foreach ($subscription_threads as $subscription_thread){
+            $subscription_thread->total_votes = $subscription_thread->up_votes - $subscription_thread->down_votes;
         }
-
 
         $response = array(
             'message' => 'Success',

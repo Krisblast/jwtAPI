@@ -16,51 +16,91 @@ class CommentController extends Controller
     public function index($type, $id, Request $request)
     {
 
-        if($type === 'user'){
-            $comments = User::find($id)->comments()->get();
-            //TODO Check if user exists
+
+        if ($request->user()){
+            if ($type === 'user') {
+                $comments = User::find($id)->comments()
+                    ->select(DB::raw(
+                        'comments.*,  
+                    (select votes.vote_type FROM votes where ' . $request->user()->id . ' = votes.user_id AND comments.id = votes.comment_id) as vote_type,
+                    (select COUNT(*) FROM votes where comments.id = votes.comment_id AND votes.vote_type = 1) as up_votes,
+                    (select COUNT(*) FROM votes where comments.id = votes.comment_id AND votes.vote_type = 0) as down_votes'))
+                    ->get();
+
+
+                //TODO Check if user exists
+            } else if ($type === 'sub') {
+                $comments = Sub::find($id)->comments()
+                    ->select(DB::raw(
+                        'comments.*,  
+                    subs.sub_name, 
+                    (select votes.vote_type FROM votes where ' . $request->user()->id . ' = votes.user_id AND comments.id = votes.comment_id) as vote_type,
+                    (select COUNT(*) FROM votes where comments.id = votes.comment_id AND votes.vote_type = 1) as up_votes,
+                    (select COUNT(*) FROM votes where comments.id = votes.comment_id AND votes.vote_type = 0) as down_votes'))
+                    ->get();
+                //TODO Check if user exists
+            } else if ($type === 'thread') {
+                $comments = Thread::find($id)->comments()
+                    ->select(DB::raw(
+                        'comments.*,  
+                    (select votes.vote_type FROM votes where ' . $request->user()->id . ' = votes.user_id AND comments.id = votes.comment_id) as vote_type,
+                    (select COUNT(*) FROM votes where comments.id = votes.comment_id AND votes.vote_type = 1) as up_votes,
+                    (select COUNT(*) FROM votes where comments.id = votes.comment_id AND votes.vote_type = 0) as down_votes'))
+                    ->get();
+                //TODO Check if user exists
+
+
+            } else {
+                $response = array(
+                    'message' => 'Failed',
+                    'status' => 400,
+                    'errors' => 'Not a valid search type'
+                );
+                return response($response, 400);
+            }
         }
-        else if($type === 'sub'){
-            $comments = Sub::find($id)->comments()->get();
-            //TODO Check if user exists
-        }
-        else if($type === 'thread'){
-            $comments = Thread::find($id)->comments()->get();
-            //TODO Check if user exists
+        else {
+            if ($type === 'user') {
+                $comments = User::find($id)->comments()
+                    ->select(DB::raw(
+                        'comments.*,  
+                    (select COUNT(*) FROM votes where comments.id = votes.comment_id AND votes.vote_type = 1) as up_votes,
+                    (select COUNT(*) FROM votes where comments.id = votes.comment_id AND votes.vote_type = 0) as down_votes'))
+                    ->get();
 
 
-            if($request->user()){
-                foreach ($comments as $comment){
+                //TODO Check if user exists
+            } else if ($type === 'sub') {
+                $comments = Sub::find($id)->comments()
+                    ->select(DB::raw(
+                        'comments.*,  
+                    subs.sub_name, 
+                    (select COUNT(*) FROM votes where comments.id = votes.comment_id AND votes.vote_type = 1) as up_votes,
+                    (select COUNT(*) FROM votes where comments.id = votes.comment_id AND votes.vote_type = 0) as down_votes'))
+                    ->get();
+                //TODO Check if user exists
+            } else if ($type === 'thread') {
+                $comments = Thread::find($id)->comments()
+                    ->select(DB::raw(
+                        'comments.*,  
+                    (select COUNT(*) FROM votes where comments.id = votes.comment_id AND votes.vote_type = 1) as up_votes,
+                    (select COUNT(*) FROM votes where comments.id = votes.comment_id AND votes.vote_type = 0) as down_votes'))
+                    ->get();
+                //TODO Check if user exists
 
-                    $hasVoted = DB::table('votes')
-                        ->where('comment_id', $comment->id)
-                        ->where('user_id', '=', $request->user()->id)
-                        ->first();
 
-
-                    if ($hasVoted){
-                        $comment->has_voted = true;
-                        $comment->vote_type = $hasVoted->vote_type;
-                    }
-                    else {
-                        $comment->has_voted = false;
-                    }
-
-                }
-
+            } else {
+                $response = array(
+                    'message' => 'Failed',
+                    'status' => 400,
+                    'errors' => 'Not a valid search type'
+                );
+                return response($response, 400);
             }
         }
 
-
-
-
-        else {
-            $response = array(
-                'message' => 'Failed',
-                'status' => 400,
-                'errors' => 'Not a valid search type'
-            );
-            return response($response, 400);
+        foreach ($comments as $comment) {
+            $comment->total_votes = $comment->up_votes - $comment->down_votes;
         }
 
         $response = array(
@@ -73,7 +113,6 @@ class CommentController extends Controller
     }
 
 
-
     public function store(Request $request)
     {
         $rules = array(
@@ -81,18 +120,16 @@ class CommentController extends Controller
             'sub_id' => 'required',
             'thread_id' => 'required',
         );
-        $validator = Validator::make(Input::all(),$rules);
+        $validator = Validator::make(Input::all(), $rules);
 
-        if($validator->fails()){
+        if ($validator->fails()) {
             $response = array(
                 'message' => 'Failed',
                 'status' => 400,
                 'errors' => $validator->errors()
             );
             return response($response, 400);
-        }
-
-        else {
+        } else {
             $comment = new Comment();
             $comment->sub_id = $request->input('sub_id');
             $comment->thread_id = $request->input('thread_id');
@@ -100,11 +137,10 @@ class CommentController extends Controller
             $comment->user_name = $request->user()->name;
             $comment->comment_text = $request->input('comment_text');
             $comment->comment_ref_id = $request->input('comment_ref_id');
-            $comment->up_votes = 0;
-            $comment->down_votes = 0;
-            $comment->total_votes = 0;
             $comment->save();
-            //$completedTasks = User::find($request->user()->id)->subs()->get();
+            $comment->total_votes = 0;
+            $comment->vote_type = null;
+
             $response = array(
                 'message' => 'Success',
                 'status' => 200,
