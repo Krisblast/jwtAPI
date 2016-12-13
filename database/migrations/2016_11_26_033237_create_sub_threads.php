@@ -30,9 +30,6 @@ class CreateSubThreads extends Migration
             $table->string('user_name');
             $table->text('text')->nullable();
             $table->string('link')->nullable();
-            $table->integer('up_votes')->unsigned();
-            $table->integer('down_votes')->unsigned();
-            $table->integer('total_votes');
 
         });
     }

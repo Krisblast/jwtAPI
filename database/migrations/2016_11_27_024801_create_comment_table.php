@@ -31,9 +31,7 @@ class CreateCommentTable extends Migration
                 ->onDelete('cascade');
             $table->timestamps();
             $table->text('comment_text')->nullable();
-            $table->integer('up_votes')->unsigned();
-            $table->integer('down_votes')->unsigned();
-            $table->integer('total_votes');
+
 
             $table->integer('comment_ref_id')->unsigned()->nullable();
             $table->foreign('comment_ref_id')

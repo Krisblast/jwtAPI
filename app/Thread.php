@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Thread extends Model
 {
-    protected $fillable = array('sub_id', 'user_id', 'title', 'image', 'text', 'up_votes', 'down_votes', 'user_name', 'total_votes');
+    protected $fillable = array('sub_id', 'user_id', 'title', 'image', 'text', 'user_name');
 
 
     public function sub()
