@@ -28,7 +28,12 @@ class SubController extends Controller
             $subs = Sub::orderBy('id', 'asc')
                 ->join('users', 'subs.user_id', '=', 'users.id')
                 ->leftJoin('threads', 'threads.sub_id', '=', 'subs.id')
-                ->select(DB::raw('subs.*, users.name as user_name, COUNT(threads.id) AS threads_count'))
+                ->select(DB::raw(
+                    'subs.*, 
+                    users.name as user_name, 
+                    COUNT(threads.id) AS threads_count,
+                    (select COUNT(*) FROM subscribers where subscribers.sub_id = subs.id) as subscribers_count'
+                ))
                 ->groupBy('subs.id')
                 ->get();
 
@@ -40,7 +45,11 @@ class SubController extends Controller
             return response($response, 200);
         } else {
 
-            $sub = Sub::where('sub_name', $id)->first();
+            $sub = Sub::where('sub_name', $id)
+                ->select(DB::raw(
+                    'subs.*, 
+                    (select COUNT(*) FROM subscribers where subscribers.sub_id = subs.id) as subscribers_count'
+                ))->first();
 
             $response = array(
                 'message' => 'Success',
@@ -113,7 +122,7 @@ class SubController extends Controller
                 ->paginate(25);
 
 
-        foreach ($subscription_threads as $subscription_thread){
+        foreach ($subscription_threads as $subscription_thread) {
             $subscription_thread->total_votes = $subscription_thread->up_votes - $subscription_thread->down_votes;
         }
 
