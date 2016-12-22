@@ -21,7 +21,6 @@ class ThreadController extends Controller
 
         if($request->user()){
             if($id === null){
-                //TODO How should we define a thread as "hot"
                 $threads = Thread::orderBy('created_at', 'desc')
                     ->leftJoin('subs', 'threads.sub_id', '=', 'subs.id')
                     ->leftJoin('comments', 'threads.id', '=', 'comments.thread_id')
@@ -36,7 +35,6 @@ class ThreadController extends Controller
                     ->paginate(25);
             }
             else {
-                //TODO How should we define a thread as "hot"
                 $threads = Sub::find($id)->threads()
                     ->leftJoin('subs', 'threads.sub_id', '=', 'subs.id')
                     ->leftJoin('comments', 'threads.id', '=', 'comments.thread_id')
@@ -53,7 +51,6 @@ class ThreadController extends Controller
         }
         else {
             if($id === null){
-                //TODO How should we define a thread as "hot"
                 $threads = Thread::orderBy('created_at', 'desc')
                     ->leftJoin('subs', 'threads.sub_id', '=', 'subs.id')
                     ->leftJoin('comments', 'threads.id', '=', 'comments.thread_id')
@@ -67,7 +64,6 @@ class ThreadController extends Controller
                     ->paginate(25);
             }
             else {
-                //TODO How should we define a thread as "hot"
                 $threads = Sub::find($id)->threads()
                     ->leftJoin('subs', 'threads.sub_id', '=', 'subs.id')
                     ->leftJoin('comments', 'threads.id', '=', 'comments.thread_id')
